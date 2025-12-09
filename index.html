@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptMaster AI - VEO & Vídeo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              primary: {
+                50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    
+    <style>
+      body { background-color: #0f172a; color: #f8fafc; }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: #1e293b; }
+      ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.run/@google/genai",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+      import { GoogleGenAI, Type, Schema } from "@google/genai";
+
+      // --- ICONS (Lucide Wrapper for Standalone) ---
+      const { 
+        Sparkles, Wand2, Loader2, Copy, Check, Info, Lightbulb, 
+        Clapperboard, FileText, Hash, PenTool, ShoppingBag, Video, 
+        Image: ImageIcon, Target, ShieldCheck, User, MapPin, X, 
+        Gift, Music, ShoppingCart, Mic, Cat, Package, Camera, Smile, 
+        Layers, Film, Link, Play, Edit, ChevronRight, AlertCircle 
+      } = window.lucide.icons;
+
+      const LucideIcon = ({ icon, ...props }) => {
+        const IconComponent = window.lucide.icons[icon];
+        return IconComponent ? <IconComponent {...props} /> : null;
+      };
+
+      // --- TYPES & ENUMS ---
+      const TargetModel = {
+        CHATGPT: 'ChatGPT / GPT-4',
+        CLAUDE: 'Claude 3.5 Sonnet',
+        GEMINI: 'Google Gemini',
+        MIDJOURNEY: 'Midjourney',
+        STABLE_DIFFUSION: 'Stable Diffusion',
+        DALL_E: 'DALL-E 3'
+      };
+
+      const PromptTone = {
+        PROFESSIONAL: 'Profissional',
+        CREATIVE: 'Criativo',
+        ACADEMIC: 'Acadêmico',
+        CASUAL: 'Casual',
+        HUMOROUS: 'Bem-humorado',
+        PERSUASIVE: 'Persuasivo'
+      };
+
+      const PromptLanguage = {
+        PORTUGUESE: 'Português',
+        ENGLISH: 'Inglês',
+        SPANISH: 'Espanhol',
+        FRENCH: 'Francês'
+      };
+
+      const AffiliateMode = {
+        VAI: 'Roteiro VAI (Venda por Intenção)',
+        VIRAL: 'Achadinho Viral (TikTok)',
+        OBJECTION: 'Quebra de Objeção',
+        SEO: 'SEO (Título e Hashtags)'
+      };
+
+      const AffiliateRole = {
+        FRIEND_TO_FRIEND: 'De Amigo para Amigo (Conselho sincero)',
+        SELLER: 'Vendedor Especialista (Persuasivo)',
+        STORYTELLING: 'Storytelling (Narrativa envolvente)',
+        PROFESSIONAL: 'Profissional / Técnico (Análise fria)',
+        INFLUENCER: 'Influencer Exagerado (Hype)'
+      };
+
+      const RegionalAccent = {
+        NEUTRAL: 'Neutro (Padrão Internet)',
+        PAULISTA: 'Paulista (Mêo, daora)',
+        CARIOCA: 'Carioca (Mermão, caraca)',
+        MINEIRO: 'Mineiro (Uai, trem bão)',
+        GAUCHO: 'Gaúcho (Bah, tchê)',
+        NORDESTINO_GENERICO: 'Nordestino (Arretado, oxente)',
+        BAIANO: 'Baiano (Massa, barril)',
+        PERNAMBUCANO: 'Pernambucano (Visse, massa)',
+        CEARENSE: 'Cearense (Macho, égua)',
+        MARANHENSE: 'Maranhense (Égua, tu doido)',
+        AMAZONENSE: 'Nortista/Amazonense (Mano, chibata)',
+        PARANAENSE: 'Paranaense (Piá, daí)',
+        CATARINENSE: 'Catarinense (Tanso, capaz)',
+        GOIANO: 'Goiano (Uai, bão demais)',
+        BRASILIENSE: 'Brasiliense (Véio, paia)'
+      };
+
+      const VideoMode = {
+        VEO_INFLUENCER: 'Influencer de Loja',
+        VEO_SANTA: 'Papai Noel na Loja',
+        VEO_ALOK: 'Intro Telão Alok',
+        VEO_MARKET: 'Tour Mercadinho',
+        VEO_PODCAST: 'Podcast Fake',
+        VEO_PIXAR: 'Pixar 3D',
+        PRO_UNBOXING: 'Unboxing Premium',
+        PRO_ASMR: 'Cena ASMR',
+        PRO_BEAUTY: 'Influencer Beauty',
+        PRO_SELFIE: 'Selfie Academia',
+        PRO_HAND: 'Mão no Horizonte',
+        PRO_AVATAR: 'Avatar Realista'
+      };
+
+      // --- CONFIG & DATA ---
+      const veoViralCards = [
+        {
+          mode: VideoMode.VEO_INFLUENCER,
+          type: 'video',
+          title: 'Influencer de Loja',
+          description: 'Apresentadora realista na sua loja.',
+          icon: User,
+          inputs: [
+            { key: 'description', label: 'Descrição da Mulher', placeholder: 'Ex: Loira, jovem, sorriso simpático...' },
+            { key: 'outfit', label: 'Roupa/Time', placeholder: 'Ex: Camisa do Flamengo, Vestido Florido...' },
+            { key: 'location', label: 'Local', placeholder: 'Ex: Loja de sapatos...' }
+          ],
+          color: 'text-purple-400',
+          bg: 'bg-purple-500/10',
+          border: 'border-purple-500/20'
+        },
+        {
+          mode: VideoMode.VEO_SANTA,
+          type: 'video',
+          title: 'Papai Noel na Loja',
+          description: 'O bom velhinho visitando seu negócio.',
+          icon: Gift,
+          inputs: [
+            { key: 'store_type', label: 'Tipo de Loja', placeholder: 'Ex: Barbearia vintage...' },
+            { key: 'action', label: 'Ação', placeholder: 'Ex: Cortando o cabelo, segurando sacolas...' }
+          ],
+          color: 'text-red-400',
+          bg: 'bg-red-500/10',
+          border: 'border-red-500/20'
+        },
+        {
+          mode: VideoMode.VEO_ALOK,
+          type: 'video',
+          title: 'Intro Telão Alok',
+          description: 'Seu nome em neon num show gigante.',
+          icon: Music,
+          inputs: [
+            { key: 'brand_name', label: 'Nome da Marca', placeholder: 'Ex: PROMPT MASTER...' }
+          ],
+          color: 'text-cyan-400',
+          bg: 'bg-cyan-500/10',
+          border: 'border-cyan-500/20'
+        },
+        {
+          mode: VideoMode.VEO_MARKET,
+          type: 'video',
+          title: 'Tour Mercadinho',
+          description: 'Mostre o ambiente e produtos.',
+          icon: ShoppingCart,
+          inputs: [
+            { key: 'location_desc', label: 'Descrição do Local', placeholder: 'Ex: Mercadinho de bairro organizado...' }
+          ],
+          color: 'text-orange-400',
+          bg: 'bg-orange-500/10',
+          border: 'border-orange-500/20'
+        },
+        {
+          mode: VideoMode.VEO_PODCAST,
+          type: 'video',
+          title: 'Podcast Fake',
+          description: 'Cortes virais de podcast profissional.',
+          icon: Mic,
+          inputs: [
+            { key: 'speaker', label: 'Quem Fala', placeholder: 'Ex: Homem de terno cinza...' },
+            { key: 'topic', label: 'Assunto', placeholder: 'Ex: Empreendedorismo e sucesso...' }
+          ],
+          color: 'text-green-400',
+          bg: 'bg-green-500/10',
+          border: 'border-green-500/20'
+        },
+        {
+          mode: VideoMode.VEO_PIXAR,
+          type: 'video',
+          title: 'Pixar 3D',
+          description: 'Animação fofa estilo Disney.',
+          icon: Cat,
+          inputs: [
+            { key: 'mascot', label: 'Mascote', placeholder: 'Ex: Um cachorro golden retriever...' },
+            { key: 'action', label: 'Ação', placeholder: 'Ex: Pulando numa piscina de bolinhas...' }
+          ],
+          color: 'text-pink-400',
+          bg: 'bg-pink-500/10',
+          border: 'border-pink-500/20'
+        }
+      ];
+
+      const studioProCards = [
+        {
+          mode: VideoMode.PRO_UNBOXING,
+          type: 'image',
+          title: 'Unboxing Premium',
+          description: 'Foto comercial de alta qualidade.',
+          icon: Package,
+          inputs: [
+            { key: 'product', label: 'Produto', placeholder: 'Ex: iPhone 15 Pro Max...' }
+          ],
+          color: 'text-indigo-400',
+          bg: 'bg-indigo-500/10',
+          border: 'border-indigo-500/20'
+        },
+        {
+          mode: VideoMode.PRO_ASMR,
+          type: 'image',
+          title: 'Cena ASMR',
+          description: 'Detalhes ultra-realistas em bancada.',
+          icon: "Sparkles",
+          inputs: [
+            { key: 'product', label: 'Produto', placeholder: 'Ex: Creme hidratante...' },
+            { key: 'counter', label: 'Bancada', placeholder: 'Ex: Mármore branco luxuoso...' }
+          ],
+          color: 'text-teal-400',
+          bg: 'bg-teal-500/10',
+          border: 'border-teal-500/20'
+        },
+        {
+          mode: VideoMode.PRO_BEAUTY,
+          type: 'image',
+          title: 'Influencer Beauty',
+          description: 'Retrato close-up com produto.',
+          icon: Camera,
+          inputs: [
+            { key: 'product', label: 'Produto', placeholder: 'Ex: Batom vermelho...' },
+            { key: 'model', label: 'Modelo', placeholder: 'Ex: Mulher morena de olhos verdes...' }
+          ],
+          color: 'text-rose-400',
+          bg: 'bg-rose-500/10',
+          border: 'border-rose-500/20'
+        },
+        {
+          mode: VideoMode.PRO_SELFIE,
+          type: 'image',
+          title: 'Selfie Academia',
+          description: 'Estilo autêntico espelho de academia.',
+          icon: Camera,
+          inputs: [
+            { key: 'outfit', label: 'Roupa', placeholder: 'Ex: Top e legging preta...' },
+            { key: 'location', label: 'Local', placeholder: 'Ex: Academia moderna com luz led...' }
+          ],
+          color: 'text-blue-400',
+          bg: 'bg-blue-500/10',
+          border: 'border-blue-500/20'
+        },
+        {
+          mode: VideoMode.PRO_HAND,
+          type: 'image',
+          title: 'Mão no Horizonte',
+          description: 'Foto lifestyle de viagem/paisagem.',
+          icon: MapPin,
+          inputs: [
+            { key: 'product', label: 'Produto', placeholder: 'Ex: Garrafa de água...' },
+            { key: 'landscape', label: 'Paisagem', placeholder: 'Ex: Praia no pôr do sol...' }
+          ],
+          color: 'text-amber-400',
+          bg: 'bg-amber-500/10',
+          border: 'border-amber-500/20'
+        },
+        {
+          mode: VideoMode.PRO_AVATAR,
+          type: 'image',
+          title: 'Avatar Realista',
+          description: 'Influencer virtual ultra-realista.',
+          icon: Smile,
+          inputs: [
+            { key: 'description', label: 'Descrição', placeholder: 'Ex: Homem jovem estiloso...' },
+            { key: 'location', label: 'Local', placeholder: 'Ex: Rua movimentada de NY...' }
+          ],
+          color: 'text-emerald-400',
+          bg: 'bg-emerald-500/10',
+          border: 'border-emerald-500/20'
+        }
+      ];
+
+      // --- GEMINI SERVICE ---
+      const generateOptimizedPrompt = async (data) => {
+        // NOTE: In a real app, never expose API_KEY in frontend code like this if public.
+        // For this single-file demo, we assume process.env.API_KEY is available or user replaced it.
+        const apiKey = process.env.API_KEY || "YOUR_API_KEY_HERE"; 
+        
+        if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
+             // Fallback mock if no key for demo UI testing
+             console.warn("No API Key found. Returning mock data.");
+             await new Promise(r => setTimeout(r, 1500));
+             return {
+                 optimizedPrompt: `[DEMO MODE - Insert API Key to Generate Real Content]\n\nPrompt for ${data.topic || "Selected Mode"}: ...`,
+                 explanation: "API Key is missing. This is a simulation.",
+                 tips: ["Add your Gemini API Key in the code", "Try again"]
+             };
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        
+        try {
+            let systemInstruction = '';
+            let userContent = '';
+
+            const responseSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    optimizedPrompt: { type: Type.STRING },
+                    explanation: { type: Type.STRING },
+                    tips: { type: Type.ARRAY, items: { type: Type.STRING } },
+                },
+                required: ["optimizedPrompt", "explanation", "tips"],
+            };
+
+            if (data.isVideo && data.videoMode) {
+                const inputs = data.videoInputs || {};
+                const goal = data.videoGoal || 'video';
+                const speech = data.videoSpeech ? `Speech/Script: "${data.videoSpeech}"` : "No speech.";
+                const sceneCount = data.videoSceneCount || 1;
+                const refUrl = data.videoRefUrl ? `Ref URL: ${data.videoRefUrl}` : "";
+
+                systemInstruction = `Translate inputs (PT) to English prompts. Preserve tech details.`;
+                
+                let template = '';
+                // Simple Mapping
+                if (data.videoMode === VideoMode.VEO_INFLUENCER) template = `Realistic promotional scene inside [location]. Main subject: [description] woman in [outfit]. 4k.`;
+                else if (data.videoMode === VideoMode.VEO_SANTA) template = `Realistic Santa Claus in [store_type], [action]. Festive 4k.`;
+                else if (data.videoMode === VideoMode.VEO_ALOK) template = `Huge LED screen showing "[brand_name]" in neon. Cyberpunk 3D.`;
+                else if (data.videoMode === VideoMode.VEO_MARKET) template = `FPV drone tour of [location_desc]. Realistic lighting.`;
+                else if (data.videoMode === VideoMode.VEO_PODCAST) template = `Podcast studio, [speaker] speaking. Topic: [topic].`;
+                else if (data.videoMode === VideoMode.VEO_PIXAR) template = `3D Pixar style cute [mascot] doing [action].`;
+                else if (data.videoMode === VideoMode.PRO_UNBOXING) template = `4K unboxing of [product]. Commercial light.`;
+                else if (data.videoMode === VideoMode.PRO_ASMR) template = `Product photo of [product] on [counter]. 8k.`;
+                else if (data.videoMode === VideoMode.PRO_BEAUTY) template = `Portrait of [model] holding [product]. Warm light.`;
+                else if (data.videoMode === VideoMode.PRO_SELFIE) template = `Mirror selfie of fit woman in [outfit] at [location].`;
+                else if (data.videoMode === VideoMode.PRO_HAND) template = `Hand holding [product] with [landscape] background.`;
+                else if (data.videoMode === VideoMode.PRO_AVATAR) template = `UGC style [description] at [location]. iPhone shot.`;
+                else template = `High quality content of [topic]`;
+
+                userContent = `Template: "${template}". Inputs: ${JSON.stringify(inputs)}. Goal: ${goal}. ${refUrl}. Scenes: ${sceneCount}.`;
+            } else if (data.isAffiliate) {
+                 userContent = `Affiliate content for ${data.productName}. Mode: ${data.affiliateMode}.`;
+            } else {
+                 userContent = `Create prompt for ${data.targetModel}. Topic: ${data.topic}.`;
+            }
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: userContent,
+                config: {
+                    systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema,
+                },
+            });
+            return JSON.parse(response.text);
+        } catch (e) {
+            console.error(e);
+            throw new Error("Failed to generate content: " + e.message);
+        }
+      };
+
+      // --- COMPONENTS ---
+
+      const Header = () => (
+        <header className="w-full py-6 px-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white tracking-tight">PromptMaster AI</h1>
+                <p className="text-xs text-slate-400">Engenharia de Prompt Inteligente</p>
+              </div>
+            </div>
+            <div className="hidden sm:block">
+               <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 font-medium">
+                 Powered by Gemini 2.5
+               </span>
+            </div>
+          </div>
+        </header>
+      );
+
+      const PromptForm = ({ formData, setFormData, onSubmit, isLoading }) => {
+        const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+        return (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+              <span className="w-1 h-6 bg-indigo-500 rounded-full block"></span> Configure seu Prompt
+            </h2>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">O que você quer criar?</label>
+                <input type="text" name="topic" value={formData.topic} onChange={handleChange} placeholder="Ex: Plano de marketing..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Modelo</label>
+                    <select name="targetModel" value={formData.targetModel} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white">
+                        {Object.values(TargetModel).map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Tom</label>
+                    <select name="tone" value={formData.tone} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white">
+                        {Object.values(PromptTone).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                 </div>
+              </div>
+              <button onClick={onSubmit} disabled={isLoading || !formData.topic} className={`w-full py-4 rounded-xl text-white font-bold flex justify-center items-center gap-2 ${isLoading ? 'bg-slate-700' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                {isLoading ? <Loader2 className="animate-spin"/> : <Wand2/>} {isLoading ? 'Gerando...' : 'Gerar Prompt'}
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      const ResultDisplay = ({ result, isAffiliate, affiliateMode }) => {
+        const [copied, setCopied] = React.useState(false);
+        const handleCopy = (text) => {
+            navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        };
+        if(!result) return null;
+        
+        const isSEO = isAffiliate && affiliateMode === AffiliateMode.SEO;
+        const seoItems = isSEO ? result.optimizedPrompt.split('---').map(s => s.trim()).filter(s => s.length > 0) : [];
+
+        return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {isSEO ? (
+                    <div className="space-y-4">
+                        {seoItems.map((item, i) => (
+                            <div key={i} onClick={() => handleCopy(item)} className="bg-slate-900/50 border border-amber-500/20 rounded-xl p-4 cursor-pointer hover:bg-slate-800">
+                                <span className="text-amber-400 text-xs font-bold block mb-2">Opção {i+1}</span>
+                                <pre className="whitespace-pre-wrap font-mono text-sm text-slate-300">{item}</pre>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={`border rounded-2xl overflow-hidden shadow-2xl ${isAffiliate ? 'border-rose-500/30' : 'border-indigo-500/30'}`}>
+                        <div className="px-6 py-3 border-b flex justify-between items-center bg-black/20">
+                            <h3 className="font-semibold text-slate-200">Resultado</h3>
+                            <button onClick={() => handleCopy(result.optimizedPrompt)} className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300">
+                                {copied ? <Check className="w-4 h-4"/> : <Copy className="w-4 h-4"/>} {copied ? 'Copiado!' : 'Copiar'}
+                            </button>
+                        </div>
+                        <div className="p-6 bg-slate-900/80">
+                            <pre className="whitespace-pre-wrap font-mono text-sm text-slate-100">{result.optimizedPrompt}</pre>
+                        </div>
+                    </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5">
+                        <h4 className="text-slate-200 font-semibold mb-2 flex gap-2"><Info className="w-5 h-5 text-blue-400"/> Explicação</h4>
+                        <p className="text-slate-400 text-sm">{result.explanation}</p>
+                    </div>
+                    <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5">
+                        <h4 className="text-slate-200 font-semibold mb-2 flex gap-2"><Lightbulb className="w-5 h-5 text-amber-400"/> Dicas</h4>
+                        <ul className="space-y-1 text-slate-400 text-sm list-disc pl-4">{result.tips.map((t,i) => <li key={i}>{t}</li>)}</ul>
+                    </div>
+                </div>
+            </div>
+        );
+      };
+
+      const AffiliateGrid = ({ onSelectMode }) => {
+        const cards = [
+          { mode: AffiliateMode.VAI, title: 'Roteiro VAI', icon: Target, color: 'text-rose-400', border: 'border-rose-500/20' },
+          { mode: AffiliateMode.VIRAL, title: 'Achadinho Viral', icon: Video, color: 'text-cyan-400', border: 'border-cyan-500/20' },
+          { mode: AffiliateMode.OBJECTION, title: 'Quebra de Objeção', icon: ShieldCheck, color: 'text-emerald-400', border: 'border-emerald-500/20' },
+          { mode: AffiliateMode.SEO, title: 'SEO & Hashtags', icon: Hash, color: 'text-amber-400', border: 'border-amber-500/20' }
+        ];
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cards.map(c => (
+                    <button key={c.title} onClick={() => onSelectMode(c.mode)} className={`p-6 rounded-2xl border ${c.border} bg-slate-800/40 hover:bg-slate-800 text-left transition-all hover:scale-[1.02]`}>
+                        <div className={`mb-4 ${c.color}`}><c.icon className="w-8 h-8"/></div>
+                        <h3 className="text-xl font-bold text-white mb-2">{c.title}</h3>
+                    </button>
+                ))}
+            </div>
+        );
+      };
+
+      const AffiliateModal = ({ isOpen, onClose, mode, onSubmit, ...props }) => {
+        if (!isOpen) return null;
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl p-6 relative">
+                    <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X/></button>
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-indigo-400"/> {mode}</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm text-slate-300 mb-1">Produto</label>
+                            <input type="text" value={props.productName} onChange={e => props.setProductName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"/>
+                        </div>
+                        {mode === AffiliateMode.OBJECTION && (
+                            <div>
+                                <label className="block text-sm text-slate-300 mb-1">Objeção</label>
+                                <input type="text" value={props.productObjection} onChange={e => props.setProductObjection(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"/>
+                            </div>
+                        )}
+                        <button onClick={onSubmit} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl mt-4">Gerar Conteúdo</button>
+                    </div>
+                </div>
+            </div>
+        );
+      };
+
+      // --- VIDEO COMPONENTS ---
+      const VideoGrid = ({ cards, onSelectCard }) => {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in">
+                {cards.map(card => (
+                    <div 
+                        key={card.title} 
+                        onClick={() => onSelectCard(card)}
+                        className={`cursor-pointer group relative p-6 rounded-2xl border ${card.border} ${card.bg} hover:bg-slate-800 transition-all duration-300 hover:scale-[1.02] flex flex-col h-full`}
+                    >
+                        <div className="flex-1">
+                            <div className={`p-3 rounded-lg bg-slate-900/50 w-fit mb-4 ${card.color}`}>
+                                {card.icon && <card.icon className="w-8 h-8"/>}
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-1">{card.title}</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">{card.description}</p>
+                        </div>
+                        <div className="mt-6">
+                             <button className={`w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg 
+                                ${card.type === 'video' 
+                                ? 'bg-purple-600 group-hover:bg-purple-500 text-white' 
+                                : 'bg-indigo-600 group-hover:bg-indigo-500 text-white'}`}>
+                                {card.type === 'video' ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
+                                {card.type === 'video' ? 'Criar Vídeo' : 'Gerar Imagem'}
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+      };
+
+      const VideoModal = ({ isOpen, onClose, config, onSubmit, isLoading, forcedGoal }) => {
+          const [inputs, setInputs] = React.useState({});
+          const [goal, setGoal] = React.useState('video');
+          const [sceneCount, setSceneCount] = React.useState(1);
+          const [speech, setSpeech] = React.useState('');
+          const [refUrl, setRefUrl] = React.useState('');
+
+          React.useEffect(() => {
+              if(isOpen && config) {
+                  setInputs({}); setSceneCount(1); setSpeech(''); setRefUrl('');
+                  setGoal(forcedGoal || 'video');
+              }
+          }, [isOpen, config, forcedGoal]);
+
+          if (!isOpen || !config) return null;
+
+          return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                  <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                      <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                             {config.icon && <config.icon className="w-5 h-5 text-purple-400"/>} {config.title}
+                          </h3>
+                          <button onClick={onClose}><X className="text-slate-400 hover:text-white"/></button>
+                      </div>
+                      
+                      {!forcedGoal && (
+                          <div className="p-4 flex gap-2 border-b border-slate-800 bg-black/20">
+                              <button onClick={() => setGoal('image')} className={`flex-1 py-2 rounded text-sm font-bold ${goal === 'image' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Imagem Base</button>
+                              <button onClick={() => setGoal('video')} className={`flex-1 py-2 rounded text-sm font-bold ${goal === 'video' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Vídeo VEO</button>
+                          </div>
+                      )}
+
+                      <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                          {config.inputs.map(f => (
+                              <div key={f.key}>
+                                  <label className="block text-sm text-slate-300 mb-1">{f.label}</label>
+                                  <input type="text" placeholder={f.placeholder} value={inputs[f.key]||''} onChange={e => setInputs({...inputs, [f.key]: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-purple-500 focus:outline-none"/>
+                              </div>
+                          ))}
+                          {goal === 'video' && (
+                             <div className="pt-4 border-t border-slate-800 space-y-4">
+                                 <div>
+                                     <label className="text-sm text-slate-300 block mb-2">Cenas (8s cada)</label>
+                                     <div className="flex gap-2">
+                                         {[1,2,3,4].map(n => (
+                                             <button key={n} onClick={() => setSceneCount(n)} className={`flex-1 py-2 rounded border ${sceneCount === n ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>{n}</button>
+                                         ))}
+                                     </div>
+                                 </div>
+                                 <div>
+                                    <label className="text-sm text-slate-300 block mb-1">Fala (Opcional)</label>
+                                    <textarea value={speech} onChange={e => setSpeech(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" rows={2}></textarea>
+                                 </div>
+                             </div>
+                          )}
+                          <div className="pt-2">
+                            <label className="text-sm text-slate-300 block mb-1">Link de Referência (Opcional)</label>
+                            <input type="text" value={refUrl} onChange={e => setRefUrl(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-sm" placeholder="https://..."/>
+                          </div>
+                          
+                          <button onClick={() => onSubmit(inputs, goal, speech, sceneCount, refUrl)} disabled={isLoading} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg mt-2">
+                              {isLoading ? 'Criando...' : (goal === 'video' ? `Gerar Prompt VEO (${sceneCount*8}s)` : 'Gerar Prompt Studio')}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          );
+      };
+
+      const App = () => {
+        const [activeTab, setActiveTab] = React.useState('creator');
+        const [videoSubTab, setVideoSubTab] = React.useState('veo_viral');
+        
+        // Forms
+        const [formData, setFormData] = React.useState({ topic: '', targetModel: TargetModel.CHATGPT, tone: PromptTone.PROFESSIONAL, language: PromptLanguage.PORTUGUESE });
+        
+        // Affiliate
+        const [affModalOpen, setAffModalOpen] = React.useState(false);
+        const [affMode, setAffMode] = React.useState(null);
+        const [prodName, setProdName] = React.useState('');
+        const [prodObj, setProdObj] = React.useState('');
+
+        // Video
+        const [vidModalOpen, setVidModalOpen] = React.useState(false);
+        const [selVidConfig, setSelVidConfig] = React.useState(null);
+
+        // Result
+        const [result, setResult] = React.useState(null);
+        const [loading, setLoading] = React.useState(false);
+        const [error, setError] = React.useState(null);
+
+        const execute = async (data) => {
+            setLoading(true); setError(null); setResult(null);
+            try {
+                const res = await generateOptimizedPrompt(data);
+                setResult(res);
+            } catch(e) { setError(e.message); }
+            finally { setLoading(false); }
+        };
+
+        return (
+          <div className="min-h-screen flex flex-col bg-slate-950">
+            <Header />
+            <main className="flex-grow w-full max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+                {/* Main Tabs */}
+                <div className="flex justify-center mb-4">
+                    <div className="bg-slate-900/50 p-1 rounded-xl border border-slate-800 flex gap-1 shadow-2xl">
+                        {[
+                          {id:'creator', icon: PenTool, label: 'Criador Livre', color:'indigo'},
+                          {id:'affiliate', icon: ShoppingBag, label: 'Afiliado Pro', color:'rose'},
+                          {id:'video', icon: Video, label: 'VEO & Vídeo', color:'purple'}
+                        ].map(tab => (
+                            <button key={tab.id} onClick={() => {setActiveTab(tab.id); setResult(null);}} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? `bg-${tab.color}-600 text-white` : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <tab.icon className="w-4 h-4"/> {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                    <section className="w-full lg:w-5/12">
+                        {activeTab === 'creator' && (
+                            <PromptForm formData={formData} setFormData={setFormData} onSubmit={() => execute(formData)} isLoading={loading}/>
+                        )}
+                        {activeTab === 'affiliate' && (
+                            <AffiliateGrid onSelectMode={(m) => { setAffMode(m); setAffModalOpen(true); }}/>
+                        )}
+                        {activeTab === 'video' && (
+                            <div className="space-y-6">
+                                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+                                    <button onClick={() => setVideoSubTab('veo_viral')} className={`flex-1 py-2 text-xs font-bold rounded flex justify-center gap-2 ${videoSubTab === 'veo_viral' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>🔥 VEO Virais</button>
+                                    <button onClick={() => setVideoSubTab('studio_pro')} className={`flex-1 py-2 text-xs font-bold rounded flex justify-center gap-2 ${videoSubTab === 'studio_pro' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>📸 Estúdio Pro</button>
+                                </div>
+                                {videoSubTab === 'veo_viral' && <VideoGrid cards={veoViralCards} onSelectCard={(c) => { setSelVidConfig(c); setVidModalOpen(true); }}/>}
+                                {videoSubTab === 'studio_pro' && <VideoGrid cards={studioProCards} onSelectCard={(c) => { setSelVidConfig(c); setVidModalOpen(true); }}/>}
+                            </div>
+                        )}
+                    </section>
+                    
+                    <section className="w-full lg:w-7/12 min-h-[500px]">
+                        {error && <div className="bg-red-500/10 border border-red-500 p-4 rounded text-red-200 mb-4">{error}</div>}
+                        {loading && <div className="h-full flex items-center justify-center text-slate-400 flex-col"><Loader2 className="w-10 h-10 animate-spin mb-4"/> Gerando...</div>}
+                        {!loading && result && <ResultDisplay result={result} isAffiliate={activeTab!=='creator'} affiliateMode={affMode}/>}
+                        {!loading && !result && !error && (
+                            <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-800 rounded-2xl text-slate-600 flex-col p-10 text-center">
+                                <div className="w-20 h-20 rounded-full bg-slate-900 flex items-center justify-center mb-4"><Wand2 className="w-8 h-8 opacity-20"/></div>
+                                <p>Selecione uma opção ao lado para começar.</p>
+                            </div>
+                        )}
+                    </section>
+                </div>
+            </main>
+
+            <AffiliateModal isOpen={affModalOpen} onClose={() => setAffModalOpen(false)} mode={affMode} productName={prodName} setProductName={setProdName} productObjection={prodObj} setProductObjection={setProdObj} onSubmit={() => { setAffModalOpen(false); execute({ isAffiliate: true, affiliateMode: affMode, productName: prodName, productObjection: prodObj }); }}/>
+            
+            <VideoModal isOpen={vidModalOpen} onClose={() => setVidModalOpen(false)} config={selVidConfig} forcedGoal={selVidConfig?.type === 'image' ? 'image' : 'video'} onSubmit={(inputs, goal, speech, sceneCount, refUrl) => { setVidModalOpen(false); execute({ isVideo: true, videoMode: selVidConfig.mode, videoInputs: inputs, videoGoal: goal, videoSpeech: speech, videoSceneCount: sceneCount, videoRefUrl: refUrl }); }} isLoading={loading}/>
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+</body>
+</html>

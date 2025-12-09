@@ -1,0 +1,5 @@
+{
+  "name": "PromptMaster AI",
+  "description": "Um gerador de prompts avançado que transforma ideias simples em comandos otimizados para diversos modelos de IA (LLMs e geradores de imagem).",
+  "requestFramePermissions": []
+}
