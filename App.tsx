@@ -5,18 +5,18 @@ import PromptForm from './components/PromptForm';
 import ResultDisplay from './components/ResultDisplay';
 import AffiliateGrid from './components/AffiliateGrid';
 import AffiliateModal from './components/AffiliateModal';
-import VideoGrid, { VideoCardConfig, veoViralCards, studioProCards } from './components/VideoGrid';
+import VideoGrid, { VideoCardConfig, veoViralCards, studioProCards, remodelCards, productCards } from './components/VideoGrid';
 import VideoModal from './components/VideoModal';
-import { PromptFormData, TargetModel, PromptTone, PromptLanguage, GeneratedResult, AffiliateMode, AffiliateRole, RegionalAccent } from './types';
+import { PromptFormData, TargetModel, PromptTone, PromptLanguage, GeneratedResult, AffiliateMode, AffiliateRole, RegionalAccent, VideoMode, TargetVideoModel } from './types';
 import { generateOptimizedPrompt } from './services/geminiService';
-import { AlertCircle, PenTool, ShoppingBag, Video, Clapperboard, Image as ImageIcon, Wand2 } from 'lucide-react';
+import { AlertCircle, PenTool, ShoppingBag, Video, Clapperboard, Image as ImageIcon, Wand2, Recycle, Box } from 'lucide-react';
 
 const App: React.FC = () => {
   // Navigation State
   const [activeTab, setActiveTab] = useState<'creator' | 'affiliate' | 'video'>('creator');
   
-  // Video Sub-Navigation State: 'veo_viral' | 'studio_pro' | 'creator'
-  const [videoSubTab, setVideoSubTab] = useState<'veo_viral' | 'studio_pro' | 'creator'>('veo_viral');
+  // Video Sub-Navigation State: 'veo_viral' | 'studio_pro' | 'remodel' | 'product_video' | 'creator'
+  const [videoSubTab, setVideoSubTab] = useState<'veo_viral' | 'studio_pro' | 'remodel' | 'product_video' | 'creator'>('veo_viral');
 
   // General Creator State
   const [formData, setFormData] = useState<PromptFormData>({
@@ -27,6 +27,9 @@ const App: React.FC = () => {
     language: PromptLanguage.PORTUGUESE,
     constraints: ''
   });
+
+  // State to hold the parameters of the LAST successful execution (to allow refinement)
+  const [lastExecutionData, setLastExecutionData] = useState<PromptFormData | null>(null);
 
   // Affiliate State
   const [affiliateModalOpen, setAffiliateModalOpen] = useState(false);
@@ -52,9 +55,13 @@ const App: React.FC = () => {
     executeGeneration({ ...formData, isAffiliate: false, isVideo: false });
   };
 
-  const handleAffiliateSubmit = async () => {
-    if (!productName || !selectedAffiliateMode) return;
+  const handleAffiliateSubmit = async (videoData?: { base64: string, mimeType: string }, duration?: number) => {
+    // Validation
+    if (selectedAffiliateMode !== AffiliateMode.ANALYZER && !productName) return;
+    if (selectedAffiliateMode === AffiliateMode.ANALYZER && !videoData) return;
+
     setAffiliateModalOpen(false);
+    
     executeGeneration({
       ...formData,
       isAffiliate: true,
@@ -65,13 +72,26 @@ const App: React.FC = () => {
       productObjection,
       affiliateRole,
       regionalAccent,
-      targetModel: TargetModel.CHATGPT
+      affiliateDuration: duration,
+      targetModel: TargetModel.CHATGPT,
+      analyzerVideoData: videoData?.base64,
+      analyzerMimeType: videoData?.mimeType
     });
   };
 
-  const handleVideoSubmit = async (inputs: Record<string, string>, goal: 'image' | 'video', speech?: string, sceneCount?: number, refUrl?: string) => {
+  const handleVideoSubmit = async (
+      inputs: Record<string, string>, 
+      goal: 'image' | 'video', 
+      speech?: string, 
+      sceneCount?: number, 
+      duration?: number, 
+      refUrl?: string, 
+      videoData?: { base64: string, mimeType: string },
+      productDetails?: { link: string, targetModel: TargetVideoModel, role: AffiliateRole, accent: RegionalAccent }
+  ) => {
     if (!selectedVideoConfig) return;
     setVideoModalOpen(false);
+    
     executeGeneration({
       ...formData,
       isAffiliate: false,
@@ -81,15 +101,38 @@ const App: React.FC = () => {
       videoGoal: goal,
       videoSpeech: speech,
       videoSceneCount: sceneCount,
+      videoDuration: duration,
       videoRefUrl: refUrl,
-      targetModel: TargetModel.GEMINI
+      videoFileData: videoData?.base64,
+      videoMimeType: videoData?.mimeType,
+      targetModel: TargetModel.GEMINI,
+      // Product Video Specifics
+      videoProductLink: productDetails?.link,
+      videoTargetModel: productDetails?.targetModel,
+      videoRole: productDetails?.role,
+      videoAccent: productDetails?.accent
     });
+  };
+
+  const handleRefine = async (instruction: string) => {
+     if (!lastExecutionData) return;
+     // Re-execute with the same data BUT with the refinement instruction
+     executeGeneration({
+         ...lastExecutionData,
+         refinementInstruction: instruction
+     });
   };
 
   const executeGeneration = async (data: PromptFormData) => {
     setIsLoading(true);
     setError(null);
-    setResult(null);
+    
+    // Don't clear result if refining to prevent flash, only if new generation
+    if (!data.refinementInstruction) {
+        setResult(null);
+    }
+    
+    setLastExecutionData(data); // Save for refinement
 
     try {
       const resultData = await generateOptimizedPrompt(data);
@@ -118,8 +161,15 @@ const App: React.FC = () => {
   };
 
   const getLoadingMessage = () => {
-    if (activeTab === 'affiliate') return 'Escrevendo seu conteúdo viral...';
-    if (activeTab === 'video') return 'Gerando prompt técnico em Inglês...';
+    if (activeTab === 'affiliate') {
+       if (selectedAffiliateMode === AffiliateMode.ANALYZER) return 'Assistindo ao vídeo, validando Shopee e criando variações...';
+       return 'Escrevendo seu conteúdo viral...';
+    }
+    if (activeTab === 'video') {
+       if (videoSubTab === 'remodel') return 'Analisando cenas e criando prompts de imagem para cada frame...';
+       if (videoSubTab === 'product_video') return 'Analisando produto, criando roteiro VAI e prompts visuais...';
+       return 'Gerando prompt técnico em Inglês...';
+    }
     return 'Engenhando seu prompt...';
   };
 
@@ -188,36 +238,46 @@ const App: React.FC = () => {
             {activeTab === 'video' && (
                <div className="space-y-6">
                  {/* Video Sub-Navigation */}
-                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 shadow-xl">
+                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 shadow-xl overflow-x-auto custom-scrollbar">
                    <button
                      onClick={() => setVideoSubTab('veo_viral')}
-                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-md transition-all ${
+                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
                        videoSubTab === 'veo_viral' 
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                      }`}
                    >
-                     <Clapperboard className="w-3.5 h-3.5" /> 🔥 VEO Virais
+                     <Clapperboard className="w-3.5 h-3.5" /> 🔥 VEO
                    </button>
                    <button
                      onClick={() => setVideoSubTab('studio_pro')}
-                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-md transition-all ${
+                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
                        videoSubTab === 'studio_pro' 
                         ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                      }`}
                    >
-                     <ImageIcon className="w-3.5 h-3.5" /> 📸 Estúdio Pro
+                     <ImageIcon className="w-3.5 h-3.5" /> 📸 Pro
                    </button>
                    <button
-                     onClick={() => setVideoSubTab('creator')}
-                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-md transition-all ${
-                       videoSubTab === 'creator' 
-                        ? 'bg-slate-700 text-white shadow-md' 
+                     onClick={() => setVideoSubTab('product_video')}
+                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+                       videoSubTab === 'product_video' 
+                        ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                      }`}
                    >
-                     <Wand2 className="w-3.5 h-3.5" /> Criador Smart
+                     <Box className="w-3.5 h-3.5" /> 📦 Produto
+                   </button>
+                   <button
+                     onClick={() => setVideoSubTab('remodel')}
+                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+                       videoSubTab === 'remodel' 
+                        ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-md' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                     }`}
+                   >
+                     <Recycle className="w-3.5 h-3.5" /> ♻️
                    </button>
                  </div>
 
@@ -228,12 +288,20 @@ const App: React.FC = () => {
                  {videoSubTab === 'studio_pro' && (
                    <VideoGrid cards={studioProCards} onSelectCard={openVideoModal} />
                  )}
+                 {videoSubTab === 'remodel' && (
+                   <VideoGrid cards={remodelCards} onSelectCard={openVideoModal} />
+                 )}
+                 {videoSubTab === 'product_video' && (
+                   <VideoGrid cards={productCards} onSelectCard={openVideoModal} />
+                 )}
                  {videoSubTab === 'creator' && (
-                    <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 text-center">
-                        <p className="text-slate-400 text-sm">Use o Criador Livre na aba principal para prompts customizados.</p>
+                    <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 text-center animate-in fade-in">
+                        <Wand2 className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-bold text-white mb-2">Criador Livre Inteligente</h3>
+                        <p className="text-slate-400 text-sm mb-6">Use o Criador Livre na aba principal para prompts customizados sem templates fixos.</p>
                         <button 
                             onClick={() => setActiveTab('creator')}
-                            className="mt-4 text-indigo-400 hover:text-indigo-300 text-sm font-semibold flex items-center justify-center gap-2 w-full"
+                            className="text-indigo-400 hover:text-indigo-300 text-sm font-semibold flex items-center justify-center gap-2 w-full border border-indigo-500/30 rounded-xl py-3 hover:bg-indigo-500/10 transition-all"
                         >
                             Ir para Criador Livre <PenTool className="w-4 h-4" />
                         </button>
@@ -264,7 +332,7 @@ const App: React.FC = () => {
                     <span className="text-xl">✨</span>
                   </div>
                 </div>
-                <p className="mt-6 text-slate-400 animate-pulse">
+                <p className="mt-6 text-slate-400 animate-pulse text-center px-4">
                   {getLoadingMessage()}
                 </p>
               </div>
@@ -275,6 +343,8 @@ const App: React.FC = () => {
                 result={result} 
                 isAffiliate={activeTab === 'affiliate' || activeTab === 'video'} 
                 affiliateMode={selectedAffiliateMode || undefined}
+                onRefine={handleRefine}
+                isLoading={isLoading}
               />
             )}
 
@@ -295,12 +365,17 @@ const App: React.FC = () => {
                 </div>
                 <h3 className="text-xl font-semibold text-slate-400 mb-2">
                   {activeTab === 'affiliate' ? 'Selecione uma Estratégia' : 
-                   activeTab === 'video' ? (videoSubTab === 'veo_viral' ? 'VEO Vídeos Virais' : 'Estúdio Pro') :
+                   activeTab === 'video' ? 
+                     (videoSubTab === 'veo_viral' ? 'VEO Vídeos Virais' : 
+                      videoSubTab === 'studio_pro' ? 'Estúdio Pro' : 
+                      videoSubTab === 'remodel' ? 'Remodelagem Viral' :
+                      videoSubTab === 'product_video' ? 'Vídeos de Produto' :
+                      'Criador Smart') :
                    'Aguardando sua ideia'}
                 </h3>
                 <p className="max-w-sm">
                   {activeTab === 'affiliate' 
-                    ? 'Escolha um dos cards ao lado para gerar roteiros e copys.'
+                    ? 'Escolha um dos cards ao lado para gerar roteiros e copys. Agora com Analisador de Concorrência.'
                     : activeTab === 'video'
                     ? 'Selecione um template ao lado para criar prompts otimizados em Inglês.'
                     : 'Preencha os detalhes no formulário para gerar um prompt otimizado.'}
@@ -337,8 +412,9 @@ const App: React.FC = () => {
         config={selectedVideoConfig}
         onSubmit={handleVideoSubmit}
         isLoading={isLoading}
-        // Force default goal based on tab type (checking config title/mode is safer)
         forcedGoal={selectedVideoConfig ? (
+            selectedVideoConfig.mode === VideoMode.REMODEL_VIRAL ? undefined : 
+            selectedVideoConfig.mode === VideoMode.PRODUCT_VIDEO ? undefined :
             veoViralCards.some(c => c.mode === selectedVideoConfig.mode) ? 'video' : 'image'
         ) : undefined}
       />

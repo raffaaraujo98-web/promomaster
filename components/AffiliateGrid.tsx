@@ -1,12 +1,23 @@
+
 import React from 'react';
 import { AffiliateMode } from '../types';
-import { Target, Video, ShieldCheck, Hash, ChevronRight } from 'lucide-react';
+import { Target, Video, ShieldCheck, Hash, ChevronRight, ScanEye } from 'lucide-react';
 
 interface AffiliateGridProps {
   onSelectMode: (mode: AffiliateMode) => void;
 }
 
 const cards = [
+  {
+    mode: AffiliateMode.ANALYZER,
+    title: 'Analisador de Concorrência',
+    subtitle: 'Engenharia Reversa IA',
+    icon: ScanEye,
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/20',
+    description: 'Envie um vídeo viral de um concorrente. A IA analisa a estrutura e cria 6 variações novas usando o método VAI.'
+  },
   {
     mode: AffiliateMode.VAI,
     title: 'Roteiro VAI',
@@ -51,7 +62,7 @@ const cards = [
 
 const AffiliateGrid: React.FC<AffiliateGridProps> = ({ onSelectMode }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
       {cards.map((card) => (
         <button
           key={card.title}

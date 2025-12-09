@@ -28,7 +28,8 @@ export enum AffiliateMode {
   VAI = 'Roteiro VAI (Venda por Intenção)',
   VIRAL = 'Achadinho Viral (TikTok)',
   OBJECTION = 'Quebra de Objeção',
-  SEO = 'SEO (Título e Hashtags)'
+  SEO = 'SEO (Título e Hashtags)',
+  ANALYZER = 'Analisador de Concorrência'
 }
 
 export enum AffiliateRole {
@@ -72,7 +73,18 @@ export enum VideoMode {
   PRO_BEAUTY = 'Influencer Beauty',
   PRO_SELFIE = 'Selfie Academia',
   PRO_HAND = 'Mão no Horizonte',
-  PRO_AVATAR = 'Avatar Realista'
+  PRO_AVATAR = 'Avatar Realista',
+
+  // REMODELAGEM & PRODUTO
+  REMODEL_VIRAL = 'Remodelagem Viral',
+  PRODUCT_VIDEO = 'Vídeo de Produto'
+}
+
+export enum TargetVideoModel {
+  SORA_2 = 'Sora 2 (OpenAI)',
+  KLING_AI = 'Kling AI (Flow)',
+  RUNWAY_GEN3 = 'Runway Gen-3',
+  LUMA_DREAM = 'Luma Dream Machine'
 }
 
 export interface PromptFormData {
@@ -84,6 +96,9 @@ export interface PromptFormData {
   language: PromptLanguage;
   constraints: string;
 
+  // Refinement Field (New)
+  refinementInstruction?: string;
+
   // Affiliate Pro Fields (Optional)
   isAffiliate?: boolean;
   affiliateMode?: AffiliateMode;
@@ -92,6 +107,11 @@ export interface PromptFormData {
   productObjection?: string;
   affiliateRole?: AffiliateRole;
   regionalAccent?: RegionalAccent;
+  affiliateDuration?: number; // 5, 10, 15, 20, 25 seconds for VAI
+  
+  // Analyzer Field
+  analyzerVideoData?: string; // Base64 string of the video
+  analyzerMimeType?: string;
 
   // Video Fields (Optional)
   isVideo?: boolean;
@@ -99,8 +119,17 @@ export interface PromptFormData {
   videoInputs?: Record<string, string>;
   videoGoal?: 'image' | 'video'; // Image vs Video generation
   videoSpeech?: string; // What the character says
+  videoDuration?: number; // 5, 10, 15, 20, 25 seconds
   videoSceneCount?: number; // 1 to 4 scenes
   videoRefUrl?: string; // URL for visual reference
+  videoFileData?: string; // Base64 for Remodelagem or Product Image
+  videoMimeType?: string;
+  
+  // Product Video Specifics
+  videoProductLink?: string;
+  videoTargetModel?: TargetVideoModel;
+  videoRole?: AffiliateRole; // Reuse affiliate roles for consistency
+  videoAccent?: RegionalAccent; // Reuse accents
 }
 
 export interface GeneratedResult {

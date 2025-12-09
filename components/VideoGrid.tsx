@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { VideoMode } from '../types';
-import { User, Gift, Music, ShoppingCart, Mic, Cat, Package, Sparkles, Camera, MapPin, Smile, Video, Image as ImageIcon } from 'lucide-react';
+import { User, Gift, Music, ShoppingCart, Mic, Cat, Package, Sparkles, Camera, MapPin, Smile, Video, Image as ImageIcon, Recycle, RefreshCw, ShoppingBag } from 'lucide-react';
 
 export interface VideoCardConfig {
   mode: VideoMode;
@@ -13,6 +13,9 @@ export interface VideoCardConfig {
   color: string;
   bg: string;
   border: string;
+  requiresFileUpload?: boolean;
+  fileAccept?: string; // 'video/*' or 'image/*'
+  isProductMode?: boolean; // Special flag for the complex Product Video flow
 }
 
 // Collection 1: VEO VIRAIS (Video Focus)
@@ -189,6 +192,43 @@ export const studioProCards: VideoCardConfig[] = [
   }
 ];
 
+// Collection 3: REMODELAGEM (Video Upload)
+export const remodelCards: VideoCardConfig[] = [
+  {
+    mode: VideoMode.REMODEL_VIRAL,
+    type: 'video',
+    title: 'Remodelagem Viral',
+    description: 'Envie um vídeo pronto. A IA cria 3 novas narrativas totalmente diferentes para o mesmo visual.',
+    icon: RefreshCw,
+    inputs: [],
+    requiresFileUpload: true,
+    fileAccept: 'video/*',
+    color: 'text-green-400',
+    bg: 'bg-green-500/10',
+    border: 'border-green-500/20'
+  }
+];
+
+// Collection 4: PRODUTOS (Image Upload + VAI)
+export const productCards: VideoCardConfig[] = [
+  {
+    mode: VideoMode.PRODUCT_VIDEO,
+    type: 'video',
+    title: 'Vídeo de Produto (VAI)',
+    description: 'Transforme uma foto e link em 6 roteiros virais.',
+    icon: ShoppingBag,
+    inputs: [
+      { key: 'description', label: 'Breve Descrição do Produto', placeholder: 'Ex: Fone de ouvido sem fio com cancelamento de ruído...' }
+    ],
+    requiresFileUpload: true,
+    fileAccept: 'image/*', // Accept only images (PNG/JPG)
+    isProductMode: true, // Special Flag
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/10',
+    border: 'border-rose-500/20'
+  }
+];
+
 interface VideoGridProps {
   cards: VideoCardConfig[];
   onSelectCard: (config: VideoCardConfig) => void;
@@ -217,12 +257,16 @@ const VideoGrid: React.FC<VideoGridProps> = ({ cards, onSelectCard }) => {
           </div>
 
           <div className={`mt-6 w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg 
-            ${card.type === 'video' 
+            ${card.mode === VideoMode.REMODEL_VIRAL 
+              ? 'bg-green-600 group-hover:bg-green-500 shadow-green-500/25 text-white'
+              : card.mode === VideoMode.PRODUCT_VIDEO
+              ? 'bg-rose-600 group-hover:bg-rose-500 shadow-rose-500/25 text-white'
+              : card.type === 'video' 
               ? 'bg-purple-600 group-hover:bg-purple-500 shadow-purple-500/25 text-white' 
               : 'bg-indigo-600 group-hover:bg-indigo-500 shadow-indigo-500/25 text-white'
             }`}>
-            {card.type === 'video' ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-            {card.type === 'video' ? 'Criar Vídeo' : 'Gerar Imagem'}
+            {card.mode === VideoMode.REMODEL_VIRAL ? <Recycle className="w-4 h-4"/> : card.mode === VideoMode.PRODUCT_VIDEO ? <ShoppingBag className="w-4 h-4"/> : (card.type === 'video' ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />)}
+            {card.mode === VideoMode.REMODEL_VIRAL ? 'Remodelar Vídeo' : card.mode === VideoMode.PRODUCT_VIDEO ? 'Criar Viral VAI' : (card.type === 'video' ? 'Criar Vídeo' : 'Gerar Imagem')}
           </div>
         </button>
       ))}
